@@ -1,1621 +1,2007 @@
 "use client";
 
-import React, {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const BACKEND_URL =
-  "https://museconvertmxl-production-ae99.up.railway.app";
+"https://museconvertmxl-production-ae99.up.railway.app";
 
 const INSTRUMENTS = [
-  "Piccolo",
-  "Flute",
-  "Alto Flute",
-  "Oboe",
-  "Oboe d'amore",
-  "English Horn",
-  "Heckelphone",
-  "Bass Oboe",
-  "Clarinet in Bb",
-  "Clarinet in A",
-  "Clarinet in Eb",
-  "Basset Horn",
-  "Bass Clarinet",
-  "Bassoon",
-  "Contrabassoon",
-  "Saxophone Bb Soprano",
-  "Saxophone Eb Alto",
-  "Saxophone Bb Tenor",
-  "Saxophone Eb Baritone",
-  "Saxophone Bb Bass",
-  "Saxophone Eb Contrabass",
-  "Horn in F",
-  "Tuba Bb",
-  "Tuba Eb",
-  "Trumpet in C",
-  "Trumpet in Bb",
-  "Trumpet in A",
-  "Piccolo Trumpet Bb",
-  "Piccolo Trumpet A",
-  "Cornet in Bb",
-  "Flugelhorn",
-  "Posthorn",
-  "Pocket Trumpet",
-  "Alto Trombone",
-  "Tenor Trombone",
-  "Bass Trombone",
-  "Contrabass Trombone",
-  "Euphonium",
-  "Tenor Tuba",
-  "Timpani",
-  "Xylophone",
-  "Marimba",
-  "Orchestra Bells",
-  "Glockenspiel",
-  "Vibraphone",
-  "Chimes",
-  "Guitar",
-  "Violin",
-  "Viola",
-  "Cello",
-  "Double Bass",
+"Piccolo",
+"Flute",
+"Alto Flute",
+"Oboe",
+"Oboe d'amore",
+"English Horn",
+"Heckelphone",
+"Bass Oboe",
+"Clarinet in Bb",
+"Clarinet in A",
+"Clarinet in Eb",
+"Basset Horn",
+"Bass Clarinet",
+"Bassoon",
+"Contrabassoon",
+"Saxophone Bb Soprano",
+"Saxophone Eb Alto",
+"Saxophone Bb Tenor",
+"Saxophone Eb Baritone",
+"Saxophone Bb Bass",
+"Saxophone Eb Contrabass",
+"Horn in F",
+"Tuba Bb",
+"Tuba Eb",
+"Trumpet in C",
+"Trumpet in Bb",
+"Trumpet in A",
+"Piccolo Trumpet Bb",
+"Piccolo Trumpet A",
+"Cornet in Bb",
+"Flugelhorn",
+"Posthorn",
+"Pocket Trumpet",
+"Alto Trombone",
+"Tenor Trombone",
+"Bass Trombone",
+"Contrabass Trombone",
+"Euphonium",
+"Tenor Tuba",
+"Timpani",
+"Xylophone",
+"Marimba",
+"Orchestra Bells",
+"Glockenspiel",
+"Vibraphone",
+"Chimes",
+"Guitar",
+"Violin",
+"Viola",
+"Cello",
+"Double Bass",
 ];
 
-const STAGES = [
-  {
-    id: "reading_pdf",
-    title: "Reading score",
-    description: "Analyzing your PDF",
-  },
-  {
-    id: "extracting_music",
-    title: "Extracting music",
-    description: "Reading the notation",
-  },
-  {
-    id: "transposing",
-    title: "Transposing",
-    description: "Rewriting for your instrument",
-  },
-  {
-    id: "generating_pdf",
-    title: "Generating PDF",
-    description: "Preparing your finished score",
-  },
+const GROUPS = [
+{
+name: "Strings",
+instruments: ["Violin", "Viola", "Cello", "Double Bass"],
+},
+{
+name: "Woodwinds",
+instruments: [
+"Piccolo",
+"Flute",
+"Alto Flute",
+"Oboe",
+"Oboe d'amore",
+"English Horn",
+"Bassoon",
+"Contrabassoon",
+"Clarinet in Bb",
+"Clarinet in A",
+"Clarinet in Eb",
+"Bass Clarinet",
+],
+},
+{
+name: "Brass",
+instruments: [
+"Horn in F",
+"Trumpet in C",
+"Trumpet in Bb",
+"Trumpet in A",
+"Cornet in Bb",
+"Flugelhorn",
+"Trombone",
+"Alto Trombone",
+"Tenor Trombone",
+"Bass Trombone",
+"Euphonium",
+"Tuba Bb",
+"Tuba Eb",
+],
+},
+{
+name: "Percussion",
+instruments: [
+"Timpani",
+"Xylophone",
+"Marimba",
+"Orchestra Bells",
+"Glockenspiel",
+"Vibraphone",
+"Chimes",
+],
+},
+{
+name: "Other",
+instruments: ["Guitar"],
+},
 ];
 
-function getStageIndex(stage) {
-  if (stage === "done") return STAGES.length;
+const progressStages = [
+{
+key: "reading_pdf",
+label: "Reading score",
+description: "Opening your PDF",
+},
+{
+key: "extracting_music",
+label: "Extracting music",
+description: "Understanding the notation",
+},
+{
+key: "transposing",
+label: "Transposing",
+description: "Rewriting for your instrument",
+},
+{
+key: "generating_pdf",
+label: "Generating PDF",
+description: "Preparing your new score",
+},
+{
+key: "done",
+label: "Score ready",
+description: "Your score is complete",
+},
+];
 
-  const index = STAGES.findIndex((item) => item.id === stage);
-
-  return index === -1 ? 0 : index;
+function InstrumentIcon() {
+return ( <svg
+   viewBox="0 0 48 48"
+   width="38"
+   height="38"
+   fill="none"
+   aria-hidden="true"
+ > <path
+     d="M11 31.5c4.8 0 7.3-2.3 7.3-6.9V11.7c0-1.5 1.2-2.7 2.7-2.7h1.6c1.5 0 2.7 1.2 2.7 2.7v12.9c0 8.1-4.6 13-13.3 13H11v-6.1Z"
+     stroke="currentColor"
+     strokeWidth="1.8"
+   /> <path
+     d="M25.3 17.5h9.4c1.6 0 2.9 1.3 2.9 2.9v5.8c0 1.6-1.3 2.9-2.9 2.9h-9.4"
+     stroke="currentColor"
+     strokeWidth="1.8"
+   /> <path
+     d="M31 17.5v11.6M35.4 17.5v11.6"
+     stroke="currentColor"
+     strokeWidth="1.8"
+   /> <circle cx="13.7" cy="35.1" r="2.3" fill="currentColor" /> </svg>
+);
 }
 
-function formatFileSize(bytes) {
-  if (!bytes) return "";
+function MusicStaff() {
+return ( <svg
+   className="music-staff"
+   viewBox="0 0 900 150"
+   preserveAspectRatio="none"
+   aria-hidden="true"
+ > <g className="staff-lines"> <line x1="0" y1="45" x2="900" y2="45" /> <line x1="0" y1="60" x2="900" y2="60" /> <line x1="0" y1="75" x2="900" y2="75" /> <line x1="0" y1="90" x2="900" y2="90" /> <line x1="0" y1="105" x2="900" y2="105" /> </g>
 
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(0)} KB`;
-  }
+```
+  <g className="staff-notes">
+    <text x="70" y="99">
+      ♪
+    </text>
+    <text x="155" y="70">
+      ♫
+    </text>
+    <text x="270" y="103">
+      ♪
+    </text>
+    <text x="385" y="77">
+      ♩
+    </text>
+    <text x="510" y="105">
+      ♪
+    </text>
+    <text x="625" y="68">
+      ♫
+    </text>
+    <text x="750" y="98">
+      ♪
+    </text>
+    <text x="835" y="73">
+      ♩
+    </text>
+  </g>
+</svg>
+```
 
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+);
 }
 
-/* ─────────────────────────────────────────────
-   Icons
-───────────────────────────────────────────── */
-
-function NoteIcon({ size = 24, color = "currentColor" }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <ellipse
-        cx="7"
-        cy="18"
-        rx="4"
-        ry="2.5"
-        fill={color}
-        transform="rotate(-15 7 18)"
-      />
-      <line
-        x1="11"
-        y1="17"
-        x2="11"
-        y2="4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M11 4 Q18 2 20 8"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
-  );
+function ArrowIcon({ direction = "right" }) {
+return (
+<svg
+width="18"
+height="18"
+viewBox="0 0 24 24"
+fill="none"
+aria-hidden="true"
+style={{
+transform: direction === "down" ? "rotate(90deg)" : undefined,
+}}
+> <path
+     d="M5 12h13M13 6l6 6-6 6"
+     stroke="currentColor"
+     strokeWidth="1.7"
+     strokeLinecap="round"
+     strokeLinejoin="round"
+   /> </svg>
+);
 }
 
-function UploadIcon({ active = false }) {
-  const color = active ? "#d7b879" : "#a09480";
-
-  return (
-    <svg
-      width="42"
-      height="42"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M12 15V3M8 7l4-4 4 4"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3 15v4a2 2 0 002 2h14a2 2 0 002-2v-4"
-        stroke="#5d5546"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+function CheckIcon() {
+return ( <svg width="17" height="17" viewBox="0 0 24 24" fill="none"> <path
+     d="m5 12 4.2 4.2L19 6.5"
+     stroke="currentColor"
+     strokeWidth="2"
+     strokeLinecap="round"
+     strokeLinejoin="round"
+   /> </svg>
+);
 }
 
-function CheckIcon({ size = 16, color = "#5ab88b" }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M5 12l5 5L20 7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function UploadIcon() {
+return ( <svg width="32" height="32" viewBox="0 0 32 32" fill="none"> <path
+     d="M16 21V6m0 0-5 5m5-5 5 5"
+     stroke="currentColor"
+     strokeWidth="1.7"
+     strokeLinecap="round"
+     strokeLinejoin="round"
+   /> <path
+     d="M8 17v7.5A1.5 1.5 0 0 0 9.5 26h13a1.5 1.5 0 0 0 1.5-1.5V17"
+     stroke="currentColor"
+     strokeWidth="1.7"
+     strokeLinecap="round"
+   /> </svg>
+);
 }
 
 function DownloadIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M12 3v12M7 11l5 5 5-5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M5 21h14"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+return ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none"> <path
+     d="M12 4v11m0 0 4-4m-4 4-4-4"
+     stroke="currentColor"
+     strokeWidth="1.8"
+     strokeLinecap="round"
+     strokeLinejoin="round"
+   /> <path
+     d="M5 20h14"
+     stroke="currentColor"
+     strokeWidth="1.8"
+     strokeLinecap="round"
+   /> </svg>
+);
 }
 
-function ArrowIcon() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 12h14M13 6l6 6-6 6"
-        stroke="#c8a96e"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+function SearchIcon() {
+return ( <svg width="17" height="17" viewBox="0 0 24 24" fill="none"> <circle
+     cx="10.8"
+     cy="10.8"
+     r="6.3"
+     stroke="currentColor"
+     strokeWidth="1.7"
+   /> <path
+     d="m16 16 4.3 4.3"
+     stroke="currentColor"
+     strokeWidth="1.7"
+     strokeLinecap="round"
+   /> </svg>
+);
 }
 
-function Spinner() {
-  return (
-    <svg
-      className="muse-spinner"
-      width="17"
-      height="17"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeDasharray="28 56"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+function XIcon() {
+return ( <svg width="17" height="17" viewBox="0 0 24 24" fill="none"> <path
+     d="m6 6 12 12M18 6 6 18"
+     stroke="currentColor"
+     strokeWidth="1.7"
+     strokeLinecap="round"
+   /> </svg>
+);
 }
-
-/* ─────────────────────────────────────────────
-   Staff decoration
-───────────────────────────────────────────── */
-
-function StaffLines() {
-  return (
-    <svg
-      viewBox="0 0 800 80"
-      preserveAspectRatio="none"
-      className="staff-lines"
-      aria-hidden="true"
-    >
-      {[16, 28, 40, 52, 64].map((y) => (
-        <line
-          key={y}
-          x1="0"
-          y1={y}
-          x2="800"
-          y2={y}
-          stroke="#e8dcc8"
-          strokeWidth="1"
-        />
-      ))}
-    </svg>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Select
-───────────────────────────────────────────── */
-
-function InstrumentSelect({
-  value,
-  onChange,
-  placeholder,
-  disabled = false,
-}) {
-  return (
-    <div className="select-wrapper">
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        disabled={disabled}
-        className={`instrument-select ${
-          value ? "has-value" : "is-placeholder"
-        }`}
-      >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-
-        {INSTRUMENTS.map((instrument) => (
-          <option key={instrument} value={instrument}>
-            {instrument}
-          </option>
-        ))}
-      </select>
-
-      <span className="select-arrow">⌄</span>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────
-   Main
-───────────────────────────────────────────── */
 
 export default function MuseConvert() {
-  const [file, setFile] = useState(null);
-  const [originalInst, setOriginalInst] = useState("");
-  const [finalInst, setFinalInst] = useState("");
+const [file, setFile] = useState(null);
+const [originalInst, setOriginalInst] = useState("");
+const [finalInst, setFinalInst] = useState("");
+const [jobId, setJobId] = useState(null);
+const [stage, setStage] = useState("idle");
+const [errorMsg, setErrorMsg] = useState("");
+const [downloadUrl, setDownloadUrl] = useState(null);
 
-  const [jobId, setJobId] = useState(null);
-  const [downloadUrl, setDownloadUrl] = useState(null);
+const [dragActive, setDragActive] = useState(false);
+const [instrumentPicker, setInstrumentPicker] = useState(null);
+const [instrumentSearch, setInstrumentSearch] = useState("");
 
-  const [stage, setStage] = useState("idle");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [dragOver, setDragOver] = useState(false);
+const fileRef = useRef(null);
+const pickerRef = useRef(null);
 
-  const fileRef = useRef(null);
+const isProcessing =
+!!jobId &&
+stage !== "done" &&
+stage !== "error" &&
+stage !== "idle";
 
-  const isProcessing =
-    stage !== "idle" &&
-    stage !== "done" &&
-    stage !== "error";
+const currentStageIndex = progressStages.findIndex(
+(item) => item.key === stage
+);
 
-  const isDone = stage === "done";
+const handleFile = useCallback((selectedFile) => {
+if (!selectedFile) return;
 
-  const currentStageIndex = getStageIndex(stage);
+```
+if (!selectedFile.name.toLowerCase().endsWith(".pdf")) {
+  setErrorMsg("MuseConvert currently accepts PDF scores only.");
+  setFile(null);
+  return;
+}
 
-  const ready =
-    Boolean(file) &&
-    Boolean(originalInst) &&
-    Boolean(finalInst) &&
-    originalInst !== finalInst &&
-    !isProcessing;
+setFile(selectedFile);
+setErrorMsg("");
+setStage("idle");
+setJobId(null);
+setDownloadUrl(null);
+```
 
-  /* ─────────────────────────────────────────────
-     File selection
-  ───────────────────────────────────────────── */
+}, []);
 
-  const handleFile = useCallback((selectedFile) => {
-    if (!selectedFile) return;
+const handleDrop = useCallback(
+(event) => {
+event.preventDefault();
+setDragActive(false);
 
-    if (
-      selectedFile.type !== "application/pdf" &&
-      !selectedFile.name.toLowerCase().endsWith(".pdf")
-    ) {
-      setFile(null);
-      setErrorMsg("Please upload a PDF score.");
-      setStage("error");
-      return;
+```
+  const droppedFile = event.dataTransfer.files?.[0];
+  if (droppedFile) handleFile(droppedFile);
+},
+[handleFile]
+```
+
+);
+
+useEffect(() => {
+if (!jobId) return;
+
+```
+const interval = setInterval(async () => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/status/${jobId}`);
+    const data = await res.json();
+
+    if (data.stage) {
+      setStage(data.stage);
     }
+  } catch (_) {
+    // Keep polling quietly if a temporary request fails.
+  }
+}, 1200);
 
-    setFile(selectedFile);
-    setErrorMsg("");
-    setStage("idle");
-    setJobId(null);
-    setDownloadUrl(null);
-  }, []);
+return () => clearInterval(interval);
+```
 
-  const handleDrop = useCallback(
-    (event) => {
-      event.preventDefault();
-      setDragOver(false);
+}, [jobId]);
 
-      const droppedFile = event.dataTransfer.files?.[0];
+useEffect(() => {
+const handleOutsideClick = (event) => {
+if (
+pickerRef.current &&
+!pickerRef.current.contains(event.target)
+) {
+setInstrumentPicker(null);
+setInstrumentSearch("");
+}
+};
 
-      handleFile(droppedFile);
-    },
-    [handleFile]
+```
+document.addEventListener("mousedown", handleOutsideClick);
+
+return () =>
+  document.removeEventListener("mousedown", handleOutsideClick);
+```
+
+}, []);
+
+const handleConvert = async () => {
+if (!file) {
+setErrorMsg("Add a PDF score to get started.");
+return;
+}
+
+```
+if (!originalInst || !finalInst) {
+  setErrorMsg("Choose both the source and destination instruments.");
+  return;
+}
+
+if (originalInst === finalInst) {
+  setErrorMsg(
+    "Choose a different destination instrument to transpose the score."
   );
+  return;
+}
 
-  /* ─────────────────────────────────────────────
-     Start conversion
-  ───────────────────────────────────────────── */
+setStage("starting");
+setErrorMsg("");
+setJobId(null);
+setDownloadUrl(null);
 
-  const handleConvert = async () => {
-    if (!file) {
-      setErrorMsg("Please upload a PDF score.");
-      setStage("error");
-      return;
+try {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("original_instrument", originalInst);
+  form.append("final_instrument", finalInst);
+
+  const res = await fetch(`${BACKEND_URL}/convert`, {
+    method: "POST",
+    body: form,
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "The conversion could not be started.");
+  }
+
+  setJobId(data.job_id);
+  setDownloadUrl(data.download_url);
+} catch (error) {
+  setErrorMsg(
+    error?.message || "Something went wrong while starting the conversion."
+  );
+  setStage("error");
+}
+```
+
+};
+
+const handleDownload = () => {
+if (!downloadUrl) return;
+window.location.href = `${BACKEND_URL}${downloadUrl}`;
+};
+
+const resetConverter = () => {
+setFile(null);
+setOriginalInst("");
+setFinalInst("");
+setJobId(null);
+setStage("idle");
+setErrorMsg("");
+setDownloadUrl(null);
+setInstrumentPicker(null);
+setInstrumentSearch("");
+};
+
+const chooseInstrument = (instrument) => {
+if (instrumentPicker === "source") {
+setOriginalInst(instrument);
+} else {
+setFinalInst(instrument);
+}
+
+```
+setInstrumentPicker(null);
+setInstrumentSearch("");
+setErrorMsg("");
+```
+
+};
+
+const filteredGroups = GROUPS.map((group) => ({
+...group,
+instruments: group.instruments.filter((instrument) =>
+instrument.toLowerCase().includes(instrumentSearch.toLowerCase())
+),
+})).filter((group) => group.instruments.length > 0);
+
+const activeInstrument =
+instrumentPicker === "source" ? originalInst : finalInst;
+
+return (
+<> <style>{`
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600&display=swap');
+
+```
+    :root {
+      --mc-bg: #0b0a08;
+      --mc-surface: #12100d;
+      --mc-surface-2: #181510;
+      --mc-surface-3: #201c16;
+      --mc-ivory: #eee6d6;
+      --mc-muted: #968c7a;
+      --mc-muted-2: #6f685d;
+      --mc-gold: #c9a968;
+      --mc-gold-light: #e0c78f;
+      --mc-border: rgba(238, 230, 214, 0.11);
+      --mc-border-strong: rgba(201, 169, 104, 0.36);
+      --mc-green: #76ad8d;
+      --mc-red: #c98272;
     }
 
-    if (!originalInst || !finalInst) {
-      setErrorMsg("Please select both instruments.");
-      setStage("error");
-      return;
+    * {
+      box-sizing: border-box;
     }
 
-    if (originalInst === finalInst) {
-      setErrorMsg(
-        "Your source and target instruments must be different."
-      );
-      setStage("error");
-      return;
+    body {
+      margin: 0;
     }
 
-    setErrorMsg("");
-    setJobId(null);
-    setDownloadUrl(null);
-    setStage("starting");
+    button,
+    input {
+      font: inherit;
+    }
 
-    try {
-      const form = new FormData();
+    .mc-app {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(201, 169, 104, 0.10), transparent 34%),
+        radial-gradient(circle at 90% 55%, rgba(201, 169, 104, 0.035), transparent 28%),
+        var(--mc-bg);
+      color: var(--mc-ivory);
+      font-family: "DM Sans", sans-serif;
+      overflow-x: hidden;
+    }
 
-      form.append("file", file);
-      form.append("original_instrument", originalInst);
-      form.append("final_instrument", finalInst);
+    .mc-shell {
+      width: min(1160px, calc(100% - 48px));
+      margin: 0 auto;
+    }
 
-      /*
-       * Job-based backend:
-       *
-       * POST /convert
-       * → { job_id, download_url }
-       */
-      const response = await fetch(`${BACKEND_URL}/convert`, {
-        method: "POST",
-        body: form,
-      });
+    .mc-nav {
+      height: 82px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(238, 230, 214, 0.07);
+    }
 
-      const data = await response.json();
+    .mc-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--mc-ivory);
+      text-decoration: none;
+    }
 
-      if (!response.ok) {
-        throw new Error(
-          data.error || `Server error (${response.status})`
-        );
+    .mc-brand-mark {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--mc-border-strong);
+      color: var(--mc-gold);
+      border-radius: 50%;
+      font-family: Georgia, serif;
+      font-size: 20px;
+    }
+
+    .mc-brand-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    .mc-nav-right {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    .mc-nav-link {
+      color: var(--mc-muted);
+      font-size: 12px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    .mc-nav-pill {
+      color: var(--mc-gold-light);
+      border: 1px solid rgba(201, 169, 104, 0.22);
+      border-radius: 999px;
+      padding: 8px 13px;
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+    }
+
+    .mc-hero {
+      position: relative;
+      padding: 96px 0 76px;
+      text-align: center;
+    }
+
+    .mc-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--mc-gold);
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+
+    .mc-eyebrow::before,
+    .mc-eyebrow::after {
+      content: "";
+      width: 28px;
+      height: 1px;
+      background: rgba(201, 169, 104, 0.45);
+    }
+
+    .mc-hero h1 {
+      max-width: 800px;
+      margin: 0 auto;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: clamp(54px, 7vw, 88px);
+      line-height: 0.98;
+      font-weight: 500;
+      letter-spacing: -0.045em;
+    }
+
+    .mc-hero h1 em {
+      color: var(--mc-gold-light);
+      font-style: italic;
+    }
+
+    .mc-hero-copy {
+      max-width: 570px;
+      margin: 26px auto 0;
+      color: var(--mc-muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .mc-staff-wrap {
+      position: relative;
+      max-width: 900px;
+      height: 110px;
+      margin: 44px auto -5px;
+      opacity: 0.48;
+      mask-image: linear-gradient(90deg, transparent, black 13%, black 87%, transparent);
+      -webkit-mask-image: linear-gradient(90deg, transparent, black 13%, black 87%, transparent);
+    }
+
+    .music-staff {
+      width: 100%;
+      height: 100%;
+    }
+
+    .staff-lines line {
+      stroke: rgba(201, 169, 104, 0.22);
+      stroke-width: 1;
+    }
+
+    .staff-notes {
+      fill: rgba(224, 199, 143, 0.75);
+      font-family: Georgia, serif;
+      font-size: 42px;
+    }
+
+    .mc-workspace {
+      position: relative;
+      margin-bottom: 100px;
+    }
+
+    .mc-workspace-card {
+      position: relative;
+      background: linear-gradient(145deg, rgba(24, 21, 16, 0.97), rgba(15, 13, 10, 0.98));
+      border: 1px solid var(--mc-border);
+      border-radius: 24px;
+      box-shadow:
+        0 30px 90px rgba(0, 0, 0, 0.34),
+        inset 0 1px 0 rgba(255,255,255,0.025);
+      overflow: visible;
+    }
+
+    .mc-workspace-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 28px;
+      border-bottom: 1px solid var(--mc-border);
+    }
+
+    .mc-workspace-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .mc-workspace-subtitle {
+      margin-top: 4px;
+      color: var(--mc-muted-2);
+      font-size: 12px;
+    }
+
+    .mc-step {
+      font-family: "DM Mono", monospace;
+      color: var(--mc-muted);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+    }
+
+    .mc-main-grid {
+      display: grid;
+      grid-template-columns: 1.12fr 0.88fr;
+      min-height: 470px;
+    }
+
+    .mc-upload-panel {
+      padding: 32px;
+      border-right: 1px solid var(--mc-border);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mc-section-label {
+      color: var(--mc-muted);
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 13px;
+    }
+
+    .mc-dropzone {
+      flex: 1;
+      min-height: 330px;
+      border: 1px dashed rgba(238, 230, 214, 0.18);
+      border-radius: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      cursor: pointer;
+      transition: all 180ms ease;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(201,169,104,0.055), transparent 35%),
+        rgba(255,255,255,0.008);
+    }
+
+    .mc-dropzone:hover,
+    .mc-dropzone.active {
+      border-color: rgba(201, 169, 104, 0.55);
+      background:
+        radial-gradient(circle at 50% 42%, rgba(201,169,104,0.09), transparent 40%),
+        rgba(201,169,104,0.018);
+      transform: translateY(-1px);
+    }
+
+    .mc-dropzone-content {
+      max-width: 340px;
+      padding: 35px;
+    }
+
+    .mc-upload-icon {
+      width: 68px;
+      height: 68px;
+      margin: 0 auto 22px;
+      display: grid;
+      place-items: center;
+      color: var(--mc-gold);
+      border: 1px solid rgba(201,169,104,0.25);
+      background: rgba(201,169,104,0.045);
+      border-radius: 50%;
+    }
+
+    .mc-dropzone h2 {
+      margin: 0;
+      font-family: "Playfair Display", Georgia, serif;
+      font-weight: 500;
+      font-size: 27px;
+      letter-spacing: -0.02em;
+    }
+
+    .mc-dropzone p {
+      margin: 10px 0 0;
+      color: var(--mc-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .mc-browse {
+      display: inline-block;
+      margin-top: 22px;
+      color: var(--mc-gold-light);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .mc-file-card {
+      flex: 1;
+      min-height: 330px;
+      border-radius: 17px;
+      background: linear-gradient(145deg, #1d1913, #13110d);
+      border: 1px solid rgba(201,169,104,0.22);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .mc-file-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .mc-file-icon {
+      width: 54px;
+      height: 68px;
+      border: 1px solid rgba(201,169,104,0.35);
+      background: rgba(201,169,104,0.055);
+      display: grid;
+      place-items: center;
+      color: var(--mc-gold);
+      border-radius: 8px;
+      font-family: "DM Mono", monospace;
+      font-size: 11px;
+      position: relative;
+    }
+
+    .mc-file-icon::after {
+      content: "";
+      position: absolute;
+      top: -1px;
+      right: -1px;
+      width: 14px;
+      height: 14px;
+      background: var(--mc-bg);
+      border-left: 1px solid rgba(201,169,104,0.35);
+      border-bottom: 1px solid rgba(201,169,104,0.35);
+    }
+
+    .mc-remove {
+      width: 32px;
+      height: 32px;
+      border: 1px solid var(--mc-border);
+      background: transparent;
+      color: var(--mc-muted);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .mc-remove:hover {
+      color: var(--mc-ivory);
+      border-color: rgba(238,230,214,0.28);
+    }
+
+    .mc-file-name {
+      margin-top: 26px;
+      color: var(--mc-ivory);
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.4;
+      word-break: break-word;
+    }
+
+    .mc-file-meta {
+      margin-top: 7px;
+      color: var(--mc-muted-2);
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+    }
+
+    .mc-file-ready {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--mc-green);
+      font-family: "DM Mono", monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mc-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .mc-controls {
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .mc-controls-title {
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 25px;
+      font-weight: 500;
+      margin-bottom: 27px;
+    }
+
+    .mc-instruments {
+      display: flex;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .mc-instrument {
+      position: relative;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mc-instrument-label {
+      color: var(--mc-muted);
+      font-family: "DM Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 9px;
+    }
+
+    .mc-instrument-button {
+      width: 100%;
+      min-height: 94px;
+      padding: 17px;
+      border: 1px solid var(--mc-border);
+      border-radius: 13px;
+      background: rgba(255,255,255,0.018);
+      color: var(--mc-ivory);
+      text-align: left;
+      cursor: pointer;
+      transition: all 160ms ease;
+    }
+
+    .mc-instrument-button:hover,
+    .mc-instrument-button.selected {
+      border-color: rgba(201,169,104,0.45);
+      background: rgba(201,169,104,0.045);
+    }
+
+    .mc-instrument-button-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--mc-gold);
+    }
+
+    .mc-instrument-name {
+      margin-top: 11px;
+      color: var(--mc-ivory);
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mc-instrument-hint {
+      margin-top: 4px;
+      color: var(--mc-muted-2);
+      font-size: 10px;
+    }
+
+    .mc-arrow-between {
+      align-self: center;
+      color: var(--mc-gold);
+      margin-top: 21px;
+    }
+
+    .mc-picker {
+      position: absolute;
+      z-index: 50;
+      top: calc(100% + 9px);
+      left: 0;
+      width: min(340px, 75vw);
+      background: #17140f;
+      border: 1px solid rgba(201,169,104,0.28);
+      border-radius: 15px;
+      padding: 12px;
+      box-shadow: 0 28px 70px rgba(0,0,0,0.55);
+    }
+
+    .mc-picker-search {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid var(--mc-border);
+      background: rgba(255,255,255,0.025);
+      border-radius: 9px;
+      padding: 10px 11px;
+      color: var(--mc-muted);
+    }
+
+    .mc-picker-search input {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--mc-ivory);
+      font-size: 12px;
+    }
+
+    .mc-picker-search input::placeholder {
+      color: var(--mc-muted-2);
+    }
+
+    .mc-picker-list {
+      max-height: 285px;
+      overflow-y: auto;
+      margin-top: 8px;
+      padding-right: 3px;
+    }
+
+    .mc-picker-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .mc-picker-list::-webkit-scrollbar-thumb {
+      background: rgba(238,230,214,0.12);
+      border-radius: 10px;
+    }
+
+    .mc-group {
+      padding: 8px 3px 4px;
+    }
+
+    .mc-group-name {
+      padding: 6px 7px;
+      color: var(--mc-gold);
+      font-family: "DM Mono", monospace;
+      font-size: 8px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .mc-option {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: var(--mc-muted);
+      border-radius: 7px;
+      text-align: left;
+      padding: 9px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .mc-option:hover,
+    .mc-option.current {
+      color: var(--mc-ivory);
+      background: rgba(201,169,104,0.08);
+    }
+
+    .mc-option.current {
+      box-shadow: inset 2px 0 0 var(--mc-gold);
+    }
+
+    .mc-action {
+      margin-top: auto;
+      padding-top: 30px;
+    }
+
+    .mc-convert-button {
+      width: 100%;
+      min-height: 56px;
+      border: 0;
+      border-radius: 10px;
+      background: var(--mc-gold);
+      color: #17120a;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 180ms ease;
+      box-shadow: 0 8px 25px rgba(201,169,104,0.12);
+    }
+
+    .mc-convert-button:hover:not(:disabled) {
+      background: var(--mc-gold-light);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px rgba(201,169,104,0.17);
+    }
+
+    .mc-convert-button:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .mc-error {
+      margin-top: 14px;
+      border: 1px solid rgba(201,130,114,0.27);
+      background: rgba(201,130,114,0.055);
+      color: #dca79a;
+      border-radius: 9px;
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .mc-progress {
+      padding: 45px 46px 48px;
+    }
+
+    .mc-progress-heading {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 38px;
+    }
+
+    .mc-progress-heading .mc-eyebrow {
+      margin-bottom: 15px;
+    }
+
+    .mc-progress-heading h2 {
+      margin: 0;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 42px;
+      font-weight: 500;
+      letter-spacing: -0.035em;
+    }
+
+    .mc-progress-heading p {
+      margin: 11px 0 0;
+      color: var(--mc-muted);
+      font-size: 13px;
+    }
+
+    .mc-progress-visual {
+      position: relative;
+      height: 150px;
+      margin: 0 auto 38px;
+      max-width: 760px;
+      overflow: hidden;
+      border-top: 1px solid rgba(201,169,104,0.12);
+      border-bottom: 1px solid rgba(201,169,104,0.12);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mc-progress-staff {
+      position: absolute;
+      width: 100%;
+      opacity: 0.5;
+    }
+
+    .mc-progress-notes {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 34px;
+      color: var(--mc-gold-light);
+      font-family: Georgia, serif;
+      font-size: 38px;
+      animation: mcFloat 2.5s ease-in-out infinite;
+    }
+
+    .mc-progress-notes span:nth-child(2) {
+      animation-delay: 180ms;
+    }
+
+    .mc-progress-notes span:nth-child(3) {
+      animation-delay: 360ms;
+    }
+
+    .mc-progress-notes span:nth-child(4) {
+      animation-delay: 540ms;
+    }
+
+    @keyframes mcFloat {
+      0%, 100% {
+        transform: translateY(0);
+        opacity: 0.65;
+      }
+      50% {
+        transform: translateY(-5px);
+        opacity: 1;
+      }
+    }
+
+    .mc-stage-list {
+      max-width: 760px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .mc-stage {
+      border-top: 2px solid rgba(238,230,214,0.08);
+      padding-top: 12px;
+      color: var(--mc-muted-2);
+    }
+
+    .mc-stage.complete {
+      border-top-color: var(--mc-gold);
+      color: var(--mc-ivory);
+    }
+
+    .mc-stage.active {
+      border-top-color: var(--mc-gold);
+      color: var(--mc-gold-light);
+    }
+
+    .mc-stage-number {
+      font-family: "DM Mono", monospace;
+      font-size: 9px;
+      color: inherit;
+    }
+
+    .mc-stage-label {
+      margin-top: 7px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .mc-stage-desc {
+      margin-top: 4px;
+      color: var(--mc-muted-2);
+      font-size: 9px;
+      line-height: 1.4;
+    }
+
+    .mc-result {
+      padding: 62px 45px 55px;
+      text-align: center;
+    }
+
+    .mc-result-check {
+      width: 74px;
+      height: 74px;
+      margin: 0 auto 25px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--mc-gold-light);
+      border: 1px solid rgba(201,169,104,0.42);
+      background: rgba(201,169,104,0.055);
+    }
+
+    .mc-result h2 {
+      margin: 0;
+      font-family: "Playfair Display", Georgia, serif;
+      font-size: 48px;
+      font-weight: 500;
+      letter-spacing: -0.04em;
+    }
+
+    .mc-result-copy {
+      max-width: 500px;
+      margin: 13px auto 28px;
+      color: var(--mc-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .mc-result-card {
+      max-width: 500px;
+      margin: 0 auto 24px;
+      padding: 16px 18px;
+      border: 1px solid var(--mc-border);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.018);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .mc-result-card-icon {
+      color: var(--mc-gold);
+    }
+
+    .mc-result-file {
+      min-width: 0;
+      color: var(--mc-ivory);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mc-result-route {
+      margin-top: 4px;
+      color: var(--mc-muted-2);
+      font-family: "DM Mono", monospace;
+      font-size: 9px;
+    }
+
+    .mc-result-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .mc-download {
+      min-height: 48px;
+      padding: 0 23px;
+      border: 0;
+      border-radius: 9px;
+      background: var(--mc-gold);
+      color: #17120a;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+    }
+
+    .mc-download:hover {
+      background: var(--mc-gold-light);
+    }
+
+    .mc-again {
+      min-height: 48px;
+      padding: 0 20px;
+      border: 1px solid var(--mc-border);
+      border-radius: 9px;
+      background: transparent;
+      color: var(--mc-muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .mc-again:hover {
+      color: var(--mc-ivory);
+      border-color: rgba(238,230,214,0.25);
+    }
+
+    .mc-footer {
+      padding: 0 0 50px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--mc-muted-2);
+      font-family: "DM Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .mc-footer-gold {
+      color: rgba(201,169,104,0.65);
+    }
+
+    @media (max-width: 850px) {
+      .mc-shell {
+        width: min(100% - 28px, 700px);
       }
 
-      if (!data.job_id) {
-        throw new Error(
-          "The server did not return a conversion job ID."
-        );
+      .mc-nav {
+        height: 70px;
       }
 
-      setJobId(data.job_id);
-
-      if (data.download_url) {
-        setDownloadUrl(data.download_url);
+      .mc-nav-link {
+        display: none;
       }
 
-      /*
-       * If the backend doesn't immediately provide a stage,
-       * begin at the first real processing stage.
-       */
-      setStage(data.stage || "reading_pdf");
-    } catch (error) {
-      console.error(error);
+      .mc-hero {
+        padding: 70px 0 48px;
+      }
 
-      setErrorMsg(
-        error?.message ||
-          "Something went wrong while starting the conversion."
-      );
+      .mc-main-grid {
+        grid-template-columns: 1fr;
+      }
 
-      setStage("error");
+      .mc-upload-panel {
+        border-right: 0;
+        border-bottom: 1px solid var(--mc-border);
+      }
+
+      .mc-dropzone,
+      .mc-file-card {
+        min-height: 280px;
+      }
+
+      .mc-stage-list {
+        grid-template-columns: repeat(2, 1fr);
+        row-gap: 18px;
+      }
     }
-  };
 
-  /* ─────────────────────────────────────────────
-     Poll backend
-  ───────────────────────────────────────────── */
-
-  useEffect(() => {
-    if (!jobId) return;
-
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const response = await fetch(
-          `${BACKEND_URL}/status/${jobId}`
-        );
-
-        if (!response.ok) {
-          throw new Error("Could not retrieve conversion status.");
-        }
-
-        const data = await response.json();
-
-        if (cancelled) return;
-
-        if (data.stage) {
-          setStage(data.stage);
-        }
-
-        if (data.download_url) {
-          setDownloadUrl(data.download_url);
-        }
-
-        if (data.error) {
-          setErrorMsg(data.error);
-          setStage("error");
-        }
-      } catch (error) {
-        /*
-         * Don't immediately kill the conversion if one
-         * polling request fails. Railway/network hiccups
-         * shouldn't ruin a perfectly good running job.
-         */
-        console.warn("Status polling failed:", error);
+    @media (max-width: 600px) {
+      .mc-shell {
+        width: min(100% - 20px, 700px);
       }
-    };
 
-    poll();
+      .mc-brand-name {
+        font-size: 13px;
+      }
 
-    const interval = setInterval(poll, 1200);
+      .mc-nav-pill {
+        display: none;
+      }
 
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [jobId]);
+      .mc-hero {
+        padding: 60px 0 35px;
+      }
 
-  /* ─────────────────────────────────────────────
-     Download
-  ───────────────────────────────────────────── */
+      .mc-hero h1 {
+        font-size: 50px;
+      }
 
-  const handleDownload = () => {
-    if (!downloadUrl) return;
+      .mc-hero-copy {
+        font-size: 14px;
+      }
 
-    const url = downloadUrl.startsWith("http")
-      ? downloadUrl
-      : `${BACKEND_URL}${downloadUrl}`;
+      .mc-staff-wrap {
+        height: 80px;
+      }
 
-    window.location.href = url;
-  };
+      .mc-workspace {
+        margin-bottom: 70px;
+      }
 
-  /* ─────────────────────────────────────────────
-     Reset
-  ───────────────────────────────────────────── */
+      .mc-workspace-header {
+        padding: 20px;
+      }
 
-  const handleReset = () => {
-    setFile(null);
-    setOriginalInst("");
-    setFinalInst("");
-    setJobId(null);
-    setDownloadUrl(null);
-    setStage("idle");
-    setErrorMsg("");
-    setDragOver(false);
+      .mc-upload-panel,
+      .mc-controls {
+        padding: 20px;
+      }
 
-    if (fileRef.current) {
-      fileRef.current.value = "";
+      .mc-instruments {
+        flex-direction: column;
+      }
+
+      .mc-arrow-between {
+        transform: rotate(90deg);
+        margin: -2px auto;
+      }
+
+      .mc-instrument-button {
+        min-height: 84px;
+      }
+
+      .mc-picker {
+        width: 100%;
+      }
+
+      .mc-progress {
+        padding: 32px 20px 35px;
+      }
+
+      .mc-progress-heading h2 {
+        font-size: 34px;
+      }
+
+      .mc-stage-list {
+        grid-template-columns: 1fr;
+      }
+
+      .mc-result {
+        padding: 45px 20px;
+      }
+
+      .mc-result h2 {
+        font-size: 39px;
+      }
+
+      .mc-result-actions {
+        flex-direction: column;
+      }
+
+      .mc-download,
+      .mc-again {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .mc-footer {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
     }
-  };
-
-  const progressPercent = isDone
-    ? 100
-    : Math.round(
-        ((currentStageIndex + 1) / STAGES.length) * 100
-      );
-
-  return (
-    <>
-      <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        html,
-        body,
-        #root {
-          min-height: 100%;
-          margin: 0;
-        }
-
-        body {
-          background: #0d0c0a;
-        }
-
-        button,
-        select,
-        input {
-          font: inherit;
-        }
-
-        button:focus-visible,
-        select:focus-visible {
-          outline: 1px solid #c8a96e;
-          outline-offset: 3px;
-        }
-
-        @keyframes museSpin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes museFadeUp {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes musePulse {
-          0%,
-          100% {
-            opacity: .35;
-            transform: scale(.8);
-          }
-
-          50% {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-
-        .muse-page {
-          min-height: 100vh;
-          position: relative;
-          overflow: hidden;
-          color: #e8dcc8;
-          background:
-            radial-gradient(
-              ellipse 70% 35% at 50% -5%,
-              rgba(200,169,110,.10),
-              transparent 72%
-            ),
-            #0d0c0a;
-          font-family:
-            Georgia,
-            "Times New Roman",
-            serif;
-        }
-
-        .muse-page::before {
-          content: "";
-          position: fixed;
-          inset: 0;
-          pointer-events: none;
-          opacity: .35;
-          background:
-            repeating-linear-gradient(
-              0deg,
-              transparent 0px,
-              transparent 31px,
-              rgba(232,220,200,.018) 32px
-            );
-        }
-
-        .muse-container {
-          position: relative;
-          z-index: 1;
-          width: min(860px, calc(100% - 40px));
-          margin: 0 auto;
-          padding: 46px 0 60px;
-        }
-
-        /* HEADER */
-
-        .muse-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          gap: 30px;
-          margin-bottom: 36px;
-        }
-
-        .muse-brand {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          color: #c8a96e;
-          font-size: 12px;
-          letter-spacing: .27em;
-          text-transform: uppercase;
-          font-style: italic;
-        }
-
-        .muse-brand-mark {
-          width: 32px;
-          height: 32px;
-          display: grid;
-          place-items: center;
-          border: 1px solid rgba(200,169,110,.3);
-          border-radius: 50%;
-        }
-
-        .muse-eyebrow {
-          margin-top: 8px;
-          color: #5e574a;
-          font-size: 9px;
-          letter-spacing: .25em;
-          text-transform: uppercase;
-        }
-
-        .muse-header-note {
-          padding-top: 5px;
-          color: #4f493d;
-          font-size: 10px;
-          letter-spacing: .16em;
-          text-transform: uppercase;
-          text-align: right;
-        }
-
-        .muse-title {
-          margin: 0;
-          color: #f0e8d4;
-          font-size: clamp(44px, 7vw, 72px);
-          line-height: .98;
-          font-weight: 400;
-          letter-spacing: -.045em;
-        }
-
-        .muse-title span {
-          color: #c8a96e;
-          font-style: italic;
-        }
-
-        .muse-description {
-          max-width: 520px;
-          margin: 18px 0 0;
-          color: #918676;
-          font-size: 14px;
-          line-height: 1.75;
-        }
-
-        .muse-rule {
-          width: 48px;
-          height: 1px;
-          margin-top: 22px;
-          background: #c8a96e;
-          opacity: .55;
-        }
-
-        /* CARD */
-
-        .muse-card {
-          overflow: hidden;
-          border: 1px solid #2e2a23;
-          border-radius: 5px;
-          background: #15130f;
-          box-shadow:
-            0 35px 100px rgba(0,0,0,.25),
-            0 4px 18px rgba(0,0,0,.18);
-        }
-
-        .muse-score-bar {
-          position: relative;
-          height: 82px;
-          overflow: hidden;
-          border-bottom: 1px solid #2e2a23;
-          background: #13120f;
-        }
-
-        .staff-lines {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          opacity: .065;
-        }
-
-        .muse-clef {
-          position: absolute;
-          left: 28px;
-          top: 50%;
-          transform: translateY(-53%);
-          color: #e8dcc8;
-          opacity: .28;
-          font-size: 54px;
-          line-height: 1;
-        }
-
-        .muse-score-meta {
-          position: absolute;
-          right: 28px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #5f5748;
-          font-size: 9px;
-          letter-spacing: .2em;
-          text-transform: uppercase;
-        }
-
-        .muse-body {
-          padding: 38px;
-        }
-
-        /* UPLOAD */
-
-        .upload-zone {
-          min-height: 195px;
-          padding: 30px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          cursor: pointer;
-          border: 1px dashed #403a2f;
-          border-radius: 4px;
-          background: rgba(255,255,255,.003);
-          transition:
-            border-color .2s ease,
-            background .2s ease,
-            transform .2s ease;
-        }
-
-        .upload-zone:hover {
-          border-color: #685a3e;
-          background: rgba(200,169,110,.018);
-        }
-
-        .upload-zone.dragging {
-          border-color: #c8a96e;
-          background: rgba(200,169,110,.055);
-          transform: scale(1.005);
-        }
-
-        .upload-zone.has-file {
-          border-color: rgba(76,175,130,.48);
-          background: rgba(76,175,130,.025);
-        }
-
-        .upload-icon-wrap {
-          width: 58px;
-          height: 58px;
-          display: grid;
-          place-items: center;
-          margin-bottom: 8px;
-          border: 1px solid #302c25;
-          border-radius: 50%;
-          background: #11100d;
-        }
-
-        .upload-title {
-          color: #b8ad9a;
-          font-size: 15px;
-        }
-
-        .upload-subtitle {
-          margin-top: 7px;
-          color: #575044;
-          font-size: 10px;
-          letter-spacing: .15em;
-          text-transform: uppercase;
-        }
-
-        .uploaded-file {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          max-width: 100%;
-          color: #62b88d;
-          font-size: 15px;
-        }
-
-        .uploaded-file-name {
-          max-width: 470px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .uploaded-file-size {
-          margin-top: 8px;
-          color: #5e594d;
-          font-size: 11px;
-        }
-
-        /* INSTRUMENTS */
-
-        .instrument-section {
-          margin-top: 32px;
-        }
-
-        .instrument-grid {
-          display: grid;
-          grid-template-columns: minmax(0,1fr) 46px minmax(0,1fr);
-          gap: 14px;
-          align-items: end;
-        }
-
-        .field-label {
-          display: block;
-          margin-bottom: 9px;
-          color: #706858;
-          font-size: 9px;
-          letter-spacing: .2em;
-          text-transform: uppercase;
-        }
-
-        .select-wrapper {
-          position: relative;
-        }
-
-        .instrument-select {
-          appearance: none;
-          width: 100%;
-          min-height: 49px;
-          padding: 0 42px 0 14px;
-          border: 1px solid #302c25;
-          border-radius: 3px;
-          background: #0f0e0b;
-          color: #e8dcc8;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 14px;
-          cursor: pointer;
-          transition:
-            border-color .2s ease,
-            background .2s ease;
-        }
-
-        .instrument-select:hover {
-          border-color: #4a4235;
-        }
-
-        .instrument-select:focus {
-          border-color: #c8a96e;
-          outline: none;
-        }
-
-        .instrument-select.is-placeholder {
-          color: #554f43;
-        }
-
-        .instrument-select:disabled {
-          cursor: not-allowed;
-          opacity: .5;
-        }
-
-        .select-arrow {
-          position: absolute;
-          right: 14px;
-          top: 50%;
-          transform: translateY(-57%);
-          pointer-events: none;
-          color: #6f6656;
-          font-size: 17px;
-        }
-
-        .instrument-arrow {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding-bottom: 11px;
-        }
-
-        /* BUTTON */
-
-        .convert-button {
-          width: 100%;
-          min-height: 53px;
-          margin-top: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          border: 1px solid #302c25;
-          border-radius: 3px;
-          background: #1d1a15;
-          color: #514b40;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 11px;
-          letter-spacing: .22em;
-          text-transform: uppercase;
-          transition:
-            background .2s ease,
-            border-color .2s ease,
-            color .2s ease,
-            transform .2s ease,
-            box-shadow .2s ease;
-        }
-
-        .convert-button.ready {
-          cursor: pointer;
-          border-color: #c8a96e;
-          background: #c8a96e;
-          color: #0e0d0a;
-          box-shadow: 0 10px 30px rgba(200,169,110,.07);
-        }
-
-        .convert-button.ready:hover {
-          background: #d5b97f;
-          border-color: #d5b97f;
-          transform: translateY(-1px);
-          box-shadow: 0 13px 35px rgba(200,169,110,.12);
-        }
-
-        .convert-button:disabled {
-          cursor: not-allowed;
-        }
-
-        .muse-spinner {
-          animation: museSpin 1s linear infinite;
-        }
-
-        /* ERROR */
-
-        .error-box {
-          margin-top: 15px;
-          padding: 13px 15px;
-          border: 1px solid rgba(210,83,83,.23);
-          border-radius: 3px;
-          background: rgba(210,83,83,.045);
-          color: #d27a7a;
-          font-size: 12px;
-          line-height: 1.5;
-          animation: museFadeUp .25s ease;
-        }
-
-        /* PROGRESS */
-
-        .progress-panel {
-          margin-top: 34px;
-          padding-top: 30px;
-          border-top: 1px solid #29261f;
-          animation: museFadeUp .3s ease;
-        }
-
-        .progress-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: baseline;
-          margin-bottom: 15px;
-        }
-
-        .progress-title {
-          color: #d2c5b0;
-          font-size: 15px;
-        }
-
-        .progress-number {
-          color: #716958;
-          font-size: 9px;
-          letter-spacing: .18em;
-          text-transform: uppercase;
-        }
-
-        .progress-track {
-          height: 2px;
-          overflow: hidden;
-          margin-bottom: 24px;
-          background: #2c2821;
-        }
-
-        .progress-fill {
-          height: 100%;
-          background: #c8a96e;
-          transition: width .45s ease;
-        }
-
-        .stage-list {
-          display: grid;
-          gap: 12px;
-        }
-
-        .stage-row {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 24px;
-          color: #4e493e;
-          font-size: 12px;
-          transition: color .25s ease;
-        }
-
-        .stage-row.active {
-          color: #d0c3ae;
-        }
-
-        .stage-row.complete {
-          color: #817866;
-        }
-
-        .stage-dot {
-          width: 21px;
-          height: 21px;
-          flex: 0 0 21px;
-          display: grid;
-          place-items: center;
-          border: 1px solid #353129;
-          border-radius: 50%;
-        }
-
-        .stage-row.active .stage-dot {
-          border-color: #c8a96e;
-        }
-
-        .stage-row.complete .stage-dot {
-          border-color: rgba(76,175,130,.45);
-        }
-
-        .active-dot {
-          width: 5px;
-          height: 5px;
-          border-radius: 50%;
-          background: #c8a96e;
-          animation: musePulse 1.2s ease-in-out infinite;
-        }
-
-        .stage-description {
-          margin-left: auto;
-          color: #514c42;
-          font-size: 10px;
-        }
-
-        /* SUCCESS */
-
-        .success-panel {
-          margin-top: 34px;
-          padding: 25px;
-          border: 1px solid rgba(76,175,130,.23);
-          border-radius: 4px;
-          background: rgba(76,175,130,.025);
-          animation: museFadeUp .35s ease;
-        }
-
-        .success-heading {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          color: #b8d6c5;
-          font-size: 15px;
-        }
-
-        .success-copy {
-          margin-top: 9px;
-          color: #737c72;
-          font-size: 12px;
-          line-height: 1.65;
-        }
-
-        .success-conversion {
-          margin-top: 10px;
-          color: #9baf9f;
-          font-size: 12px;
-        }
-
-        .success-actions {
-          display: grid;
-          grid-template-columns: minmax(0,1fr) auto;
-          gap: 10px;
-          margin-top: 20px;
-        }
-
-        .download-button,
-        .reset-button {
-          min-height: 46px;
-          border-radius: 3px;
-          font-family: Georgia, "Times New Roman", serif;
-          font-size: 10px;
-          letter-spacing: .14em;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition:
-            transform .2s ease,
-            background .2s ease,
-            border-color .2s ease;
-        }
-
-        .download-button {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 9px;
-          border: 1px solid #4caf82;
-          background: #4caf82;
-          color: #0d120f;
-        }
-
-        .download-button:hover {
-          background: #5cbd91;
-          transform: translateY(-1px);
-        }
-
-        .reset-button {
-          padding: 0 20px;
-          border: 1px solid #39352d;
-          background: transparent;
-          color: #837966;
-        }
-
-        .reset-button:hover {
-          border-color: #5a5141;
-          color: #b0a38e;
-        }
-
-        /* FOOTER */
-
-        .muse-footer {
-          margin-top: 30px;
-          text-align: center;
-          color: #39352d;
-          font-size: 9px;
-          letter-spacing: .2em;
-          text-transform: uppercase;
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 680px) {
-          .muse-container {
-            width: min(100% - 28px, 860px);
-            padding-top: 30px;
-          }
-
-          .muse-header {
-            margin-bottom: 27px;
-          }
-
-          .muse-header-note {
-            display: none;
-          }
-
-          .muse-title {
-            font-size: clamp(43px, 13vw, 60px);
-          }
-
-          .muse-description {
-            font-size: 13px;
-          }
-
-          .muse-body {
-            padding: 25px 20px 28px;
-          }
-
-          .muse-score-bar {
-            height: 68px;
-          }
-
-          .muse-clef {
-            left: 19px;
-          }
-
-          .muse-score-meta {
-            right: 19px;
-            font-size: 8px;
-          }
-
-          .upload-zone {
-            min-height: 175px;
-            padding: 24px 16px;
-          }
-
-          .instrument-grid {
-            grid-template-columns: 1fr;
-            gap: 12px;
-          }
-
-          .instrument-arrow {
-            height: 22px;
-            padding: 0;
-            transform: rotate(90deg);
-          }
-
-          .success-actions {
-            grid-template-columns: 1fr;
-          }
-
-          .reset-button {
-            padding: 0;
-          }
-
-          .stage-description {
-            display: none;
-          }
-        }
-
-        @media (max-width: 420px) {
-          .muse-container {
-            width: calc(100% - 20px);
-          }
-
-          .muse-brand {
-            font-size: 10px;
-          }
-
-          .muse-body {
-            padding: 21px 16px 23px;
-          }
-
-          .muse-upload {
-            padding: 20px 12px;
-          }
-
-          .uploaded-file-name {
-            max-width: 220px;
-          }
-        }
-      `}</style>
-
-      <div className="muse-page">
-        <div className="muse-container">
-
-          {/* ───────── Header ───────── */}
-
-          <header className="muse-header">
-            <div>
-              <div className="muse-brand">
-                <span className="muse-brand-mark">
-                  <NoteIcon size={19} color="#c8a96e" />
-                </span>
-
-                <span>MuseConvert</span>
-              </div>
-
-              <div className="muse-eyebrow">
-                MusicXML Transposition Engine
-              </div>
-            </div>
-
-            <div className="muse-header-note">
-              Sheet Music<br />
-              Reimagined
-            </div>
-          </header>
-
-          <h1 className="muse-title">
-            Transpose.
-            <br />
-            <span>Transcribe.</span>
-          </h1>
-
-          <p className="muse-description">
-            Convert a sheet-music PDF into a clean,
-            print-ready score written for another instrument.
-          </p>
-
-          <div className="muse-rule" />
-
-          {/* ───────── Main Card ───────── */}
-
-          <main className="muse-card">
-
-            {/* Musical header */}
-            <div className="muse-score-bar">
-              <StaffLines />
-
-              <div className="muse-clef">
-                𝄞
-              </div>
-
-              <div className="muse-score-meta">
-                PDF&nbsp;&nbsp;→&nbsp;&nbsp;PDF
-              </div>
-            </div>
-
-            <div className="muse-body">
-
-              {/* ───────── Upload ───────── */}
-
-              <div
-                className={`upload-zone ${
-                  dragOver ? "dragging" : ""
-                } ${file ? "has-file" : ""}`}
-                onClick={() => fileRef.current?.click()}
-                onDragOver={(event) => {
-                  event.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={handleDrop}
-              >
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept=".pdf,application/pdf"
-                  hidden
-                  onChange={(event) =>
-                    handleFile(event.target.files?.[0])
-                  }
-                />
-
-                {!file ? (
-                  <>
-                    <div className="upload-icon-wrap">
-                      <UploadIcon active={dragOver} />
-                    </div>
-
-                    <div className="upload-title">
-                      Drop your score here
-                    </div>
-
-                    <div className="upload-subtitle">
-                      or click to browse&nbsp;&nbsp;·&nbsp;&nbsp;PDF
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="upload-icon-wrap">
-                      <CheckIcon size={24} />
-                    </div>
-
-                    <div className="uploaded-file">
-                      <span className="uploaded-file-name">
-                        {file.name}
-                      </span>
-                    </div>
-
-                    <div className="uploaded-file-size">
-                      {formatFileSize(file.size)}
-                      &nbsp;&nbsp;·&nbsp;&nbsp; Click to replace
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* ───────── Instrument selection ───────── */}
-
-              <section className="instrument-section">
-                <div className="instrument-grid">
-
-                  <div>
-                    <label className="field-label">
-                      Written for
-                    </label>
-
-                    <InstrumentSelect
-                      value={originalInst}
-                      onChange={setOriginalInst}
-                      placeholder="Choose instrument…"
-                      disabled={isProcessing}
-                    />
-                  </div>
-
-                  <div className="instrument-arrow">
-                    <ArrowIcon />
-                  </div>
-
-                  <div>
-                    <label className="field-label">
-                      Transpose to
-                    </label>
-
-                    <InstrumentSelect
-                      value={finalInst}
-                      onChange={setFinalInst}
-                      placeholder="Choose instrument…"
-                      disabled={isProcessing}
-                    />
-                  </div>
-
-                </div>
-              </section>
-
-              {/* ───────── Convert button ───────── */}
-
-              <button
-                className={`convert-button ${
-                  ready ? "ready" : ""
-                }`}
-                disabled={!ready}
-                onClick={handleConvert}
-              >
-                {isProcessing ? (
-                  <>
-                    <Spinner />
-                    Converting score…
-                  </>
-                ) : isDone ? (
-                  <>
-                    <CheckIcon color="#0e0d0a" />
-                    Conversion complete
-                  </>
-                ) : (
-                  "Convert & Download PDF"
-                )}
-              </button>
-
-              {/* ───────── Error ───────── */}
-
-              {stage === "error" && errorMsg && (
-                <div className="error-box">
-                  {errorMsg}
-                </div>
-              )}
-
-              {/* ───────── Progress ───────── */}
-
-              {jobId &&
-                !isDone &&
-                stage !== "error" && (
-                  <section className="progress-panel">
-
-                    <div className="progress-header">
-                      <div className="progress-title">
-                        Converting your score
-                      </div>
-
-                      <div className="progress-number">
-                        {progressPercent}%
-                      </div>
-                    </div>
-
-                    <div className="progress-track">
-                      <div
-                        className="progress-fill"
-                        style={{
-                          width: `${Math.min(
-                            progressPercent,
-                            100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-
-                    <div className="stage-list">
-                      {STAGES.map((item, index) => {
-                        const completed =
-                          currentStageIndex > index;
-
-                        const active =
-                          currentStageIndex === index;
-
-                        return (
-                          <div
-                            key={item.id}
-                            className={`stage-row ${
-                              active ? "active" : ""
-                            } ${
-                              completed ? "complete" : ""
-                            }`}
-                          >
-                            <div className="stage-dot">
-
-                              {completed ? (
-                                <CheckIcon size={12} />
-                              ) : active ? (
-                                <span className="active-dot" />
-                              ) : null}
-
-                            </div>
-
-                            <span>
-                              {item.title}
-                            </span>
-
-                            <span className="stage-description">
-                              {active
-                                ? item.description
-                                : completed
-                                ? "Complete"
-                                : ""}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                  </section>
-                )}
-
-              {/* ───────── Success ───────── */}
-
-              {isDone && (
-                <section className="success-panel">
-
-                  <div className="success-heading">
-                    <CheckIcon size={19} />
-                    <span>
-                      Your score is ready
-                    </span>
-                  </div>
-
-                  <div className="success-conversion">
-                    {originalInst}
-                    &nbsp;&nbsp;→&nbsp;&nbsp;
-                    {finalInst}
-                  </div>
-
-                  <div className="success-copy">
-                    MuseConvert has finished transposing
-                    your score. Your new PDF is ready to
-                    download.
-                  </div>
-
-                  <div className="success-actions">
-
-                    <button
-                      className="download-button"
-                      onClick={handleDownload}
-                      disabled={!downloadUrl}
-                    >
-                      <DownloadIcon />
-                      Download PDF
-                    </button>
-
-                    <button
-                      className="reset-button"
-                      onClick={handleReset}
-                    >
-                      Convert another
-                    </button>
-
-                  </div>
-
-                </section>
-              )}
-
-            </div>
-          </main>
-
-          <footer className="muse-footer">
-            MuseConvert · MusicXML Transposition Engine
-          </footer>
-
+  `}</style>
+
+  <div className="mc-app">
+    <div className="mc-shell">
+      <nav className="mc-nav">
+        <div className="mc-brand">
+          <div className="mc-brand-mark">♫</div>
+          <div className="mc-brand-name">MuseConvert</div>
         </div>
-      </div>
-    </>
-  );
+
+        <div className="mc-nav-right">
+          <div className="mc-nav-link">Sheet Music, Reimagined</div>
+          <div className="mc-nav-pill">PDF → PDF</div>
+        </div>
+      </nav>
+
+      <section className="mc-hero">
+        <div className="mc-eyebrow">The Score Studio</div>
+
+        <h1>
+          Your music.
+          <br />
+          <em>Any instrument.</em>
+        </h1>
+
+        <p className="mc-hero-copy">
+          Transform sheet-music PDFs into clean, transposed scores.
+          Upload a score, choose where it is going, and let MuseConvert
+          handle the notation.
+        </p>
+
+        <div className="mc-staff-wrap">
+          <MusicStaff />
+        </div>
+      </section>
+
+      <main className="mc-workspace">
+        <div className="mc-workspace-card">
+          {!isProcessing && stage !== "done" && (
+            <>
+              <div className="mc-workspace-header">
+                <div>
+                  <div className="mc-workspace-title">
+                    Convert your score
+                  </div>
+                  <div className="mc-workspace-subtitle">
+                    A few seconds from the instrument you have to the one
+                    you need.
+                  </div>
+                </div>
+
+                <div className="mc-step">01 / 01</div>
+              </div>
+
+              <div className="mc-main-grid">
+                <section className="mc-upload-panel">
+                  <div className="mc-section-label">01 — Source score</div>
+
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    style={{ display: "none" }}
+                    onChange={(event) =>
+                      handleFile(event.target.files?.[0])
+                    }
+                  />
+
+                  {!file ? (
+                    <div
+                      className={`mc-dropzone ${
+                        dragActive ? "active" : ""
+                      }`}
+                      onClick={() => fileRef.current?.click()}
+                      onDragEnter={(event) => {
+                        event.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDragActive(true);
+                      }}
+                      onDragLeave={(event) => {
+                        event.preventDefault();
+                        setDragActive(false);
+                      }}
+                      onDrop={handleDrop}
+                    >
+                      <div className="mc-dropzone-content">
+                        <div className="mc-upload-icon">
+                          <UploadIcon />
+                        </div>
+
+                        <h2>Drop your score here</h2>
+
+                        <p>
+                          Bring in a PDF of the sheet music you want to
+                          transpose.
+                        </p>
+
+                        <span className="mc-browse">
+                          Browse your files →
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mc-file-card">
+                      <div>
+                        <div className="mc-file-top">
+                          <div className="mc-file-icon">PDF</div>
+
+                          <button
+                            className="mc-remove"
+                            onClick={resetConverter}
+                            aria-label="Remove file"
+                          >
+                            <XIcon />
+                          </button>
+                        </div>
+
+                        <div className="mc-file-name">{file.name}</div>
+
+                        <div className="mc-file-meta">
+                          {(file.size / 1024 / 1024).toFixed(2)} MB · PDF
+                          score
+                        </div>
+                      </div>
+
+                      <div className="mc-file-ready">
+                        <span className="mc-dot" />
+                        Score loaded and ready
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="mc-controls">
+                  <div className="mc-section-label">02 — Destination</div>
+
+                  <div className="mc-controls-title">
+                    Choose your instruments
+                  </div>
+
+                  <div className="mc-instruments">
+                    <div className="mc-instrument" ref={instrumentPicker === "source" ? pickerRef : null}>
+                      <div className="mc-instrument-label">
+                        Written for
+                      </div>
+
+                      <button
+                        className={`mc-instrument-button ${
+                          originalInst ? "selected" : ""
+                        }`}
+                        onClick={() =>
+                          setInstrumentPicker(
+                            instrumentPicker === "source"
+                              ? null
+                              : "source"
+                          )
+                        }
+                      >
+                        <div className="mc-instrument-button-top">
+                          <InstrumentIcon />
+                          <ArrowIcon direction="down" />
+                        </div>
+
+                        <div className="mc-instrument-name">
+                          {originalInst || "Choose instrument"}
+                        </div>
+
+                        <div className="mc-instrument-hint">
+                          Original score
+                        </div>
+                      </button>
+
+                      {instrumentPicker === "source" && (
+                        <div className="mc-picker">
+                          <div className="mc-picker-search">
+                            <SearchIcon />
+                            <input
+                              autoFocus
+                              value={instrumentSearch}
+                              onChange={(event) =>
+                                setInstrumentSearch(event.target.value)
+                              }
+                              placeholder="Search instruments..."
+                            />
+                          </div>
+
+                          <div className="mc-picker-list">
+                            {filteredGroups.map((group) => (
+                              <div className="mc-group" key={group.name}>
+                                <div className="mc-group-name">
+                                  {group.name}
+                                </div>
+
+                                {group.instruments.map((instrument) => (
+                                  <button
+                                    key={instrument}
+                                    className={`mc-option ${
+                                      activeInstrument === instrument
+                                        ? "current"
+                                        : ""
+                                    }`}
+                                    onClick={() =>
+                                      chooseInstrument(instrument)
+                                    }
+                                  >
+                                    {instrument}
+                                  </button>
+                                ))}
+                              </div>
+                            ))}
+
+                            {filteredGroups.length === 0 && (
+                              <div
+                                style={{
+                                  padding: "18px 10px",
+                                  color: "var(--mc-muted)",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                No instruments found.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mc-arrow-between">
+                      <ArrowIcon />
+                    </div>
+
+                    <div className="mc-instrument" ref={instrumentPicker === "target" ? pickerRef : null}>
+                      <div className="mc-instrument-label">
+                        Transpose to
+                      </div>
+
+                      <button
+                        className={`mc-instrument-button ${
+                          finalInst ? "selected" : ""
+                        }`}
+                        onClick={() =>
+                          setInstrumentPicker(
+                            instrumentPicker === "target"
+                              ? null
+                              : "target"
+                          )
+                        }
+                      >
+                        <div className="mc-instrument-button-top">
+                          <InstrumentIcon />
+                          <ArrowIcon direction="down" />
+                        </div>
+
+                        <div className="mc-instrument-name">
+                          {finalInst || "Choose instrument"}
+                        </div>
+
+                        <div className="mc-instrument-hint">
+                          New score
+                        </div>
+                      </button>
+
+                      {instrumentPicker === "target" && (
+                        <div className="mc-picker">
+                          <div className="mc-picker-search">
+                            <SearchIcon />
+                            <input
+                              autoFocus
+                              value={instrumentSearch}
+                              onChange={(event) =>
+                                setInstrumentSearch(event.target.value)
+                              }
+                              placeholder="Search instruments..."
+                            />
+                          </div>
+
+                          <div className="mc-picker-list">
+                            {filteredGroups.map((group) => (
+                              <div className="mc-group" key={group.name}>
+                                <div className="mc-group-name">
+                                  {group.name}
+                                </div>
+
+                                {group.instruments.map((instrument) => (
+                                  <button
+                                    key={instrument}
+                                    className={`mc-option ${
+                                      activeInstrument === instrument
+                                        ? "current"
+                                        : ""
+                                    }`}
+                                    onClick={() =>
+                                      chooseInstrument(instrument)
+                                    }
+                                  >
+                                    {instrument}
+                                  </button>
+                                ))}
+                              </div>
+                            ))}
+
+                            {filteredGroups.length === 0 && (
+                              <div
+                                style={{
+                                  padding: "18px 10px",
+                                  color: "var(--mc-muted)",
+                                  fontSize: "12px",
+                                }}
+                              >
+                                No instruments found.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mc-action">
+                    <button
+                      className="mc-convert-button"
+                      onClick={handleConvert}
+                      disabled={
+                        !file ||
+                        !originalInst ||
+                        !finalInst ||
+                        originalInst === finalInst
+                      }
+                    >
+                      Convert score
+                      <ArrowIcon />
+                    </button>
+
+                    {errorMsg && (
+                      <div className="mc-error">{errorMsg}</div>
+                    )}
+                  </div>
+                </section>
+              </div>
+            </>
+          )}
+
+          {isProcessing && (
+            <section className="mc-progress">
+              <div className="mc-progress-heading">
+                <div className="mc-eyebrow">Working on your score</div>
+
+                <h2>
+                  Rewriting the music
+                  <br />
+                  for <em>{finalInst}</em>
+                </h2>
+
+                <p>
+                  {originalInst} → {finalInst}
+                </p>
+              </div>
+
+              <div className="mc-progress-visual">
+                <div className="mc-progress-staff">
+                  <MusicStaff />
+                </div>
+
+                <div className="mc-progress-notes">
+                  <span>♪</span>
+                  <span>♫</span>
+                  <span>♩</span>
+                  <span>♪</span>
+                </div>
+              </div>
+
+              <div className="mc-stage-list">
+                {progressStages.slice(0, 4).map((item, index) => {
+                  const complete = index < currentStageIndex;
+                  const active = index === currentStageIndex;
+
+                  return (
+                    <div
+                      key={item.key}
+                      className={`mc-stage ${
+                        complete ? "complete" : ""
+                      } ${active ? "active" : ""}`}
+                    >
+                      <div className="mc-stage-number">
+                        {complete ? "✓" : `0${index + 1}`}
+                      </div>
+
+                      <div className="mc-stage-label">
+                        {item.label}
+                      </div>
+
+                      <div className="mc-stage-desc">
+                        {item.description}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {stage === "done" && (
+            <section className="mc-result">
+              <div className="mc-result-check">
+                <CheckIcon />
+              </div>
+
+              <h2>Your score is ready.</h2>
+
+              <p className="mc-result-copy">
+                The music has been transposed from{" "}
+                <strong>{originalInst}</strong> to{" "}
+                <strong>{finalInst}</strong>. Your new PDF is ready to
+                download.
+              </p>
+
+              <div className="mc-result-card">
+                <div className="mc-result-card-icon">
+                  <span style={{ fontFamily: "Georgia", fontSize: 24 }}>
+                    ♫
+                  </span>
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div className="mc-result-file">
+                    {file?.name || "Converted score.pdf"}
+                  </div>
+
+                  <div className="mc-result-route">
+                    {originalInst} → {finalInst}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mc-result-actions">
+                <button className="mc-download" onClick={handleDownload}>
+                  <DownloadIcon />
+                  Download PDF
+                </button>
+
+                <button className="mc-again" onClick={resetConverter}>
+                  Convert another
+                </button>
+              </div>
+            </section>
+          )}
+
+          {stage === "error" && (
+            <section className="mc-result">
+              <div
+                className="mc-result-check"
+                style={{
+                  color: "var(--mc-red)",
+                  borderColor: "rgba(201,130,114,0.35)",
+                  background: "rgba(201,130,114,0.05)",
+                }}
+              >
+                <XIcon />
+              </div>
+
+              <h2>Something went wrong.</h2>
+
+              <p className="mc-result-copy">
+                {errorMsg ||
+                  "MuseConvert couldn't complete the conversion. Please try again."}
+              </p>
+
+              <div className="mc-result-actions">
+                <button className="mc-download" onClick={resetConverter}>
+                  Try again
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+
+      <footer className="mc-footer">
+        <span>© {new Date().getFullYear()} MuseConvert</span>
+        <span className="mc-footer-gold">
+          Built for musicians, by musicians
+        </span>
+      </footer>
+    </div>
+  </div>
+</>
+```
+
+);
 }
