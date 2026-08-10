@@ -1,15 +1,11 @@
 "use client";
 
-
-import React, { useCallback, useEffect, useRef, useState } from "react";import React from "react";
-import ReactDOM from "react-dom/client";
-import App from "./App.jsx";
-
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 const BACKEND_URL =
   "https://museconvertmxl-production-ae99.up.railway.app";
