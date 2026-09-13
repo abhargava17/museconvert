@@ -3,6 +3,13 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 const BACKEND_URL =
   "https://museconvertmxl-production-ae99.up.railway.app";
 
+// The backend runs the whole pipeline (OMR -> transpose -> engrave) inside
+// a single request and streams the finished PDF straight back — there's no
+// job id and no /status endpoint to poll. We give the request plenty of
+// time to finish and simulate the stage indicator's progress locally, since
+// the backend doesn't expose granular status.
+const CLIENT_TIMEOUT_MS = 18 * 60 * 1000;
+
 const GROUPS = [
   {
     name: "Strings",
@@ -102,6 +109,8 @@ const PROGRESS_STAGES = [
     description: "Your score is complete",
   },
 ];
+
+const PROCESSING_STAGE_KEYS = PROGRESS_STAGES.slice(0, 4).map((s) => s.key);
 
 /* ============================================================
    ICONS
@@ -336,10 +345,10 @@ export default function MuseConvert() {
   const [originalInst, setOriginalInst] = useState("");
   const [finalInst, setFinalInst] = useState("");
 
-  const [jobId, setJobId] = useState(null);
   const [stage, setStage] = useState("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [downloadUrl, setDownloadUrl] = useState(null);
+  const [downloadFilename, setDownloadFilename] = useState(null);
 
   const [dragActive, setDragActive] = useState(false);
   const [instrumentPicker, setInstrumentPicker] = useState(null);
@@ -347,12 +356,11 @@ export default function MuseConvert() {
 
   const fileRef = useRef(null);
   const pickerRef = useRef(null);
+  const submittingRef = useRef(false);
+  const abortRef = useRef(null);
+  const stageTimersRef = useRef([]);
 
-  const isProcessing =
-    !!jobId &&
-    stage !== "done" &&
-    stage !== "error" &&
-    stage !== "idle";
+  const isProcessing = PROCESSING_STAGE_KEYS.includes(stage);
 
   const currentStageIndex = PROGRESS_STAGES.findIndex(
     (item) => item.key === stage
@@ -374,8 +382,8 @@ export default function MuseConvert() {
     setFile(selectedFile);
     setErrorMsg("");
     setStage("idle");
-    setJobId(null);
     setDownloadUrl(null);
+    setDownloadFilename(null);
   }, []);
 
   const handleDrop = useCallback(
@@ -391,29 +399,6 @@ export default function MuseConvert() {
     },
     [handleFile]
   );
-
-  /* ============================================================
-     POLLING
-  ============================================================ */
-
-  useEffect(() => {
-    if (!jobId) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/status/${jobId}`);
-        const data = await res.json();
-
-        if (data.stage) {
-          setStage(data.stage);
-        }
-      } catch (_) {
-        // Temporary polling errors are ignored.
-      }
-    }, 1200);
-
-    return () => clearInterval(interval);
-  }, [jobId]);
 
   /* ============================================================
      CLOSE PICKER
@@ -438,10 +423,30 @@ export default function MuseConvert() {
   }, []);
 
   /* ============================================================
+     CLEANUP ON UNMOUNT
+  ============================================================ */
+
+  useEffect(() => {
+    return () => {
+      stageTimersRef.current.forEach(clearTimeout);
+      if (abortRef.current) abortRef.current.abort();
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const clearStageTimers = () => {
+    stageTimersRef.current.forEach(clearTimeout);
+    stageTimersRef.current = [];
+  };
+
+  /* ============================================================
      CONVERSION
   ============================================================ */
 
   const handleConvert = async () => {
+    if (submittingRef.current) return;
+
     if (!file) {
       setErrorMsg("Add a PDF score to get started.");
       return;
@@ -461,10 +466,23 @@ export default function MuseConvert() {
       return;
     }
 
-    setStage("starting");
+    submittingRef.current = true;
+    clearStageTimers();
     setErrorMsg("");
-    setJobId(null);
     setDownloadUrl(null);
+    setDownloadFilename(null);
+    setStage("reading_pdf");
+
+    // The backend doesn't report real progress, so the stage indicator
+    // advances on a simple timer and then parks on "extracting_music"
+    // (the long-running OMR step) until the request actually resolves.
+    stageTimersRef.current.push(
+      setTimeout(() => setStage("extracting_music"), 1500)
+    );
+
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), CLIENT_TIMEOUT_MS);
 
     try {
       const form = new FormData();
@@ -473,44 +491,86 @@ export default function MuseConvert() {
       form.append("original_instrument", originalInst);
       form.append("final_instrument", finalInst);
 
-      const res = await fetch(`${BACKEND_URL}/convert`, {
+      const res = await fetch(`${BACKEND_URL}/convert-pdf`, {
         method: "POST",
         body: form,
+        signal: controller.signal,
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
-        throw new Error(
-          data.error || "The conversion could not be started."
-        );
+        let message = "The conversion could not be completed.";
+        try {
+          const data = await res.json();
+          if (data?.error) message = data.error;
+        } catch (_) {
+          // response wasn't JSON, fall back to the generic message
+        }
+        throw new Error(message);
       }
 
-      setJobId(data.job_id);
-      setDownloadUrl(data.download_url);
-    } catch (error) {
-      setErrorMsg(
-        error?.message ||
-          "Something went wrong while starting the conversion."
+      clearStageTimers();
+      setStage("transposing");
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const disposition = res.headers.get("content-disposition");
+      const match = disposition && /filename="?([^";]+)"?/i.exec(disposition);
+      const filename = match
+        ? match[1]
+        : `converted_${file.name.replace(/\.pdf$/i, "")}.pdf`;
+
+      stageTimersRef.current.push(
+        setTimeout(() => setStage("generating_pdf"), 350)
       );
+      stageTimersRef.current.push(
+        setTimeout(() => {
+          setDownloadUrl(url);
+          setDownloadFilename(filename);
+          setStage("done");
+        }, 700)
+      );
+    } catch (error) {
+      clearStageTimers();
+      if (error?.name === "AbortError") {
+        setErrorMsg("The request took too long and was cancelled.");
+      } else {
+        setErrorMsg(
+          error?.message ||
+            "Something went wrong while converting the score."
+        );
+      }
       setStage("error");
+    } finally {
+      clearTimeout(timeout);
+      submittingRef.current = false;
+      abortRef.current = null;
     }
   };
 
   const handleDownload = () => {
     if (!downloadUrl) return;
 
-    window.location.href = `${BACKEND_URL}${downloadUrl}`;
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = downloadFilename || "converted-score.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const resetConverter = () => {
+    clearStageTimers();
+    if (abortRef.current) abortRef.current.abort();
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+
     setFile(null);
     setOriginalInst("");
     setFinalInst("");
-    setJobId(null);
     setStage("idle");
     setErrorMsg("");
     setDownloadUrl(null);
+    setDownloadFilename(null);
     setInstrumentPicker(null);
     setInstrumentSearch("");
     setDragActive(false);
@@ -554,24 +614,24 @@ export default function MuseConvert() {
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500&display=swap');
 
         :root {
-          --mc-bg: #090909;
-          --mc-surface: #101010;
-          --mc-surface-2: #151515;
-          --mc-surface-3: #1b1b1b;
+          --mc-bg: #070a08;
+          --mc-surface: #0c110d;
+          --mc-surface-2: #101710;
+          --mc-surface-3: #141d15;
 
-          --mc-text: #f3f0e8;
-          --mc-text-soft: #c8c2b5;
-          --mc-muted: #858078;
-          --mc-muted-2: #5f5b55;
+          --mc-text: #eef3ec;
+          --mc-text-soft: #bfcabe;
+          --mc-muted: #7c8b7f;
+          --mc-muted-2: #57645a;
 
-          --mc-gold: #c7a45d;
-          --mc-gold-light: #dfc17d;
-          --mc-gold-dark: #80683b;
+          --mc-gold: #4f9d72;
+          --mc-gold-light: #7fc79d;
+          --mc-gold-dark: #2f5f45;
 
           --mc-border: rgba(255,255,255,0.09);
-          --mc-border-hover: rgba(199,164,93,0.42);
+          --mc-border-hover: rgba(79,157,114,0.42);
 
-          --mc-green: #82b497;
+          --mc-green: #74b98c;
           --mc-red: #ca8174;
         }
 
@@ -605,12 +665,12 @@ export default function MuseConvert() {
           background:
             radial-gradient(
               circle at 50% -15%,
-              rgba(199,164,93,0.075),
+              rgba(79,157,114,0.08),
               transparent 35%
             ),
             radial-gradient(
               circle at 100% 45%,
-              rgba(199,164,93,0.025),
+              rgba(79,157,114,0.03),
               transparent 30%
             ),
             var(--mc-bg);
@@ -683,7 +743,7 @@ export default function MuseConvert() {
           height: 5px;
           border-radius: 50%;
           background: var(--mc-green);
-          box-shadow: 0 0 9px rgba(130,180,151,0.5);
+          box-shadow: 0 0 9px rgba(116,185,140,0.5);
         }
 
         /* HERO */
@@ -710,7 +770,7 @@ export default function MuseConvert() {
           content: "";
           width: 24px;
           height: 1px;
-          background: rgba(199,164,93,0.42);
+          background: rgba(79,157,114,0.42);
         }
 
         .mc-hero h1 {
@@ -766,12 +826,12 @@ export default function MuseConvert() {
         }
 
         .mc-staff-lines line {
-          stroke: rgba(199,164,93,0.22);
+          stroke: rgba(79,157,114,0.22);
           stroke-width: 1;
         }
 
         .mc-staff-notes {
-          fill: rgba(223,193,125,0.72);
+          fill: rgba(127,199,157,0.72);
           font-family: Georgia, serif;
           font-size: 38px;
         }
@@ -865,7 +925,7 @@ export default function MuseConvert() {
           background:
             radial-gradient(
               circle at 50% 42%,
-              rgba(199,164,93,0.055),
+              rgba(79,157,114,0.06),
               transparent 37%
             ),
             rgba(255,255,255,0.008);
@@ -883,10 +943,10 @@ export default function MuseConvert() {
           background:
             radial-gradient(
               circle at 50% 42%,
-              rgba(199,164,93,0.09),
+              rgba(79,157,114,0.1),
               transparent 42%
             ),
-            rgba(199,164,93,0.015);
+            rgba(79,157,114,0.018);
           transform: translateY(-1px);
         }
 
@@ -904,11 +964,11 @@ export default function MuseConvert() {
           display: grid;
           place-items: center;
 
-          border: 1px solid rgba(199,164,93,0.24);
+          border: 1px solid rgba(79,157,114,0.26);
           border-radius: 15px;
 
           color: var(--mc-gold);
-          background: rgba(199,164,93,0.045);
+          background: rgba(79,157,114,0.05);
         }
 
         .mc-dropzone h2 {
@@ -948,14 +1008,14 @@ export default function MuseConvert() {
 
           padding: 25px;
 
-          border: 1px solid rgba(199,164,93,0.2);
+          border: 1px solid rgba(79,157,114,0.22);
           border-radius: 15px;
 
           background:
             linear-gradient(
               145deg,
-              rgba(30,27,21,0.9),
-              rgba(17,16,14,0.95)
+              rgba(19,28,21,0.9),
+              rgba(11,16,12,0.95)
             );
         }
 
@@ -973,11 +1033,11 @@ export default function MuseConvert() {
 
           position: relative;
 
-          border: 1px solid rgba(199,164,93,0.3);
+          border: 1px solid rgba(79,157,114,0.32);
           border-radius: 8px;
 
           color: var(--mc-gold);
-          background: rgba(199,164,93,0.05);
+          background: rgba(79,157,114,0.05);
 
           font-family: "DM Mono", monospace;
           font-size: 9px;
@@ -992,10 +1052,10 @@ export default function MuseConvert() {
           width: 13px;
           height: 13px;
 
-          background: #1c1914;
+          background: #131c14;
 
-          border-left: 1px solid rgba(199,164,93,0.3);
-          border-bottom: 1px solid rgba(199,164,93,0.3);
+          border-left: 1px solid rgba(79,157,114,0.32);
+          border-bottom: 1px solid rgba(79,157,114,0.32);
         }
 
         .mc-remove {
@@ -1119,7 +1179,7 @@ export default function MuseConvert() {
         .mc-instrument-button:hover,
         .mc-instrument-button.selected {
           border-color: var(--mc-border-hover);
-          background: rgba(199,164,93,0.045);
+          background: rgba(79,157,114,0.05);
         }
 
         .mc-instrument-button:hover {
@@ -1168,10 +1228,10 @@ export default function MuseConvert() {
 
           padding: 10px;
 
-          border: 1px solid rgba(199,164,93,0.28);
+          border: 1px solid rgba(79,157,114,0.3);
           border-radius: 14px;
 
-          background: #151515;
+          background: #101510;
 
           box-shadow:
             0 25px 70px rgba(0,0,0,0.55),
@@ -1256,7 +1316,7 @@ export default function MuseConvert() {
         .mc-option:hover,
         .mc-option.current {
           color: var(--mc-text);
-          background: rgba(199,164,93,0.08);
+          background: rgba(79,157,114,0.09);
         }
 
         .mc-option.current {
@@ -1283,7 +1343,7 @@ export default function MuseConvert() {
           border-radius: 10px;
 
           background: var(--mc-gold);
-          color: #17120a;
+          color: #0a1710;
 
           font-size: 10px;
           font-weight: 700;
@@ -1301,7 +1361,7 @@ export default function MuseConvert() {
         .mc-convert-button:hover:not(:disabled) {
           background: var(--mc-gold-light);
           transform: translateY(-1px);
-          box-shadow: 0 12px 30px rgba(199,164,93,0.15);
+          box-shadow: 0 12px 30px rgba(79,157,114,0.18);
         }
 
         .mc-convert-button:disabled {
@@ -1378,8 +1438,8 @@ export default function MuseConvert() {
 
           overflow: hidden;
 
-          border-top: 1px solid rgba(199,164,93,0.12);
-          border-bottom: 1px solid rgba(199,164,93,0.12);
+          border-top: 1px solid rgba(79,157,114,0.14);
+          border-bottom: 1px solid rgba(79,157,114,0.14);
         }
 
         .mc-progress-staff {
@@ -1488,13 +1548,13 @@ export default function MuseConvert() {
           display: grid;
           place-items: center;
 
-          border: 1px solid rgba(199,164,93,0.38);
+          border: 1px solid rgba(79,157,114,0.4);
           border-radius: 50%;
 
           color: var(--mc-gold-light);
-          background: rgba(199,164,93,0.05);
+          background: rgba(79,157,114,0.05);
 
-          box-shadow: 0 0 35px rgba(199,164,93,0.06);
+          box-shadow: 0 0 35px rgba(79,157,114,0.07);
         }
 
         .mc-result h2 {
@@ -1593,7 +1653,7 @@ export default function MuseConvert() {
 
           border: 0;
           background: var(--mc-gold);
-          color: #17120a;
+          color: #0a1710;
         }
 
         .mc-download:hover {
@@ -1631,7 +1691,7 @@ export default function MuseConvert() {
         }
 
         .mc-footer-gold {
-          color: rgba(199,164,93,0.62);
+          color: rgba(79,157,114,0.68);
         }
 
         /* RESPONSIVE */
