@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const BACKEND_URL =
-  "https://museconvertmxl-production-ae99.up.railway.app";
+  "https://museconvert-production.up.railway.app/";
 
 // The backend runs the whole pipeline (OMR -> transpose -> engrave) inside
 // a single request and streams the finished PDF straight back — there's no
