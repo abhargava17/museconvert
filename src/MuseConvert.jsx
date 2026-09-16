@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-const BACKEND_URL = "https://museconvert-production.up.railway.app/";
+const BACKEND_URL = "https://museconvert-production.up.railway.app";
 
 // The backend runs the whole pipeline (OMR -> transpose -> engrave) inside
 // a single request and streams the finished PDF straight back — there's no
@@ -238,27 +238,34 @@ export default function MuseConvert() {
       form.append("original_instrument", originalInst);
       form.append("final_instrument", finalInst);
 
-      const res = await fetch(`${BACKEND_URL}/convert-pdf`, {
+      // /convert still blocks until the whole pipeline finishes, but it now
+      // returns JSON with a download_url instead of streaming the PDF back
+      // directly.
+      const res = await fetch(`${BACKEND_URL}/convert`, {
         method: "POST",
         body: form,
         signal: controller.signal,
       });
 
-      if (!res.ok) {
-        let message = "The conversion could not be completed.";
-        try {
-          const data = await res.json();
-          if (data?.error) message = data.error;
-        } catch {}
-        throw new Error(message);
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok || !data || data.status === "error") {
+        throw new Error(data?.error || "The conversion could not be completed.");
       }
 
       clearStageTimers();
       setStage("transposing");
 
-      const blob = await res.blob();
+      const fileRes = await fetch(`${BACKEND_URL}${data.download_url}`, {
+        signal: controller.signal,
+      });
+      if (!fileRes.ok) {
+        throw new Error("The converted file could not be downloaded.");
+      }
+
+      const blob = await fileRes.blob();
       const url = URL.createObjectURL(blob);
-      const disposition = res.headers.get("content-disposition");
+      const disposition = fileRes.headers.get("content-disposition");
       const match = disposition && /filename="?([^";]+)"?/i.exec(disposition);
       const filename = match ? match[1] : `converted_${file.name.replace(/\.pdf$/i, "")}.pdf`;
 
